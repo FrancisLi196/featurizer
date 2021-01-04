@@ -76,14 +76,3 @@ class cov_adjustor():
         volatility_regime_adjustment_cov = lambda_f ** (2) * eigenfactor_risk_adjustment_cov
         return volatility_regime_adjustment_cov
 
-
-if __name__ == '__main__':
-    a = cov_adjustor()
-    x_test_df = pd.DataFrame([0, 1, 2])
-    y_test_df = pd.DataFrame([0, 1, 7])
-    x_test_df_last = pd.DataFrame([-1, -2, -3])
-    y_test_df_last = pd.DataFrame([4, 5, 6])
-    combined = pd.DataFrame([[0, 2], [1, 6], [2, 0], [7, 9]])
-    previous = pd.DataFrame([[-1, -2], [-3, -6], [-2, -4]])
-    fakefactor = pd.DataFrame(data=[[0.5,0.6,0.7],[0.1,0.2,0.3],[1,2,3]],index=['20120101','20120202','20120205'])
-    a.volatility_regime_adjustment(pd.DataFrame([[4, 0,1], [0, 2,0],[1,0,1]]),fakefactor, 1)

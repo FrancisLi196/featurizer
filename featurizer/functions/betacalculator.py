@@ -44,8 +44,3 @@ class betacalculator():
         return beta_shrinked
 
 
-a = pd.DataFrame([1, 2, 6])
-b = pd.DataFrame([2, 4, 6])
-cal = betacalculator()
-print(cal.beta_shrink(a, b, 1,[1,2,3]))
-print([x / 5 for x in a])
