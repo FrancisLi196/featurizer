@@ -18,8 +18,8 @@ from scipy.stats import rankdata
 import torch
 import numpy as np
 import pandas as pd
-from featurizer.functions.algebra_statistic import weighted_average, weighted_std, downside_std
-
+from featurizer.functions.algebra_statistic import weighted_average, weighted_std, downside_std, upside_std
+import pdb
 # https://stackoverflow.com/questions/14313510/how-to-calculate-moving-average-using-numpy
 def rolling_sum(tensor, window=1, dim=0):
     ret = torch.cumsum(tensor, dim=dim)
@@ -41,10 +41,12 @@ def rolling_sum3d(tensor, window=1, dim=1):
     return ret
 
 def rolling_mean(tensor, window=1):
-    ret = torch.cumsum(tensor, dim=0)
-    ret[window:] = ret[window:] - ret[:-window]
-    ret[:window-1]= float("nan")
-    return ret/window
+    #to-do fixme
+    #ret = torch.cumsum(tensor, dim=0)
+    #ret[window:] = ret[window:] - ret[:-window]
+    #ret[:window-1]= float("nan")
+    #output = ret/window
+    return rolling_mean_(tensor=tensor, window=window)
 
 def rolling_mean_(tensor, window=1):
     tensor_np = tensor.cpu().detach().numpy()
@@ -107,6 +109,13 @@ def rolling_std(tensor, window):
     output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
     return output_tensor
 
+def rolling_std_dof_0(tensor, window): # dof: degree of freedom
+    tensor_np = tensor.cpu().detach().numpy()
+    tensor_df = pd.DataFrame(tensor_np)
+    output_df = tensor_df.rolling(window).std(ddof=0)
+    output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
+    return output_tensor
+
 def rolling_weighted_std(tensor, window, halflife=90):
     tensor_np = tensor.cpu().detach().numpy()
     tensor_df = pd.DataFrame(tensor_np)
@@ -115,11 +124,18 @@ def rolling_weighted_std(tensor, window, halflife=90):
     return output_tensor
 
 def rolling_downside_std(tensor, tensor_benchmark, window):
-    tensor_np = tensor.cpu().detach().numpy()
-    tensor_benchmark_np = tensor_benchmark.cpu().detach().numpy()
-    tensor_df = pd.DataFrame(tensor_np)
-    #tensor_benchmark_s = pd.Series(tensor_benchmark_np)
-    output_df = tensor_df.rolling(window).apply(lambda x: downside_std(x, tensor_benchmark_np))
+    diff_ts = tensor - tensor_benchmark
+    diff_np = diff_ts.cpu().detach().numpy()
+    diff_df = pd.DataFrame(diff_np)
+    output_df = diff_df.rolling(window).apply(lambda x: downside_std(x))
+    output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
+    return output_tensor
+
+def rolling_upside_std(tensor, tensor_benchmark, window):
+    diff_ts = tensor - tensor_benchmark
+    diff_np = diff_ts.cpu().detach().numpy()
+    diff_df = pd.DataFrame(diff_np)
+    output_df = diff_df.rolling(window).apply(lambda x: upside_std(x))
     output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
     return output_tensor
 
@@ -127,6 +143,13 @@ def rolling_skew(tensor, window):
     tensor_np = tensor.cpu().detach().numpy()
     tensor_df = pd.DataFrame(tensor_np)
     output_df = tensor_df.rolling(window).skew()
+    output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
+    return output_tensor
+
+def rolling_kurt(tensor, window):
+    tensor_np = tensor.cpu().detach().numpy()
+    tensor_df = pd.DataFrame(tensor_np)
+    output_df = tensor_df.rolling(window).kurt()
     output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
     return output_tensor
 
@@ -176,6 +199,13 @@ def rolling_max(tensor, window):
     output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
     return output_tensor
 
+def rolling_median(tensor, window):
+    tensor_np = tensor.cpu().detach().numpy()
+    tensor_df = pd.DataFrame(tensor_np)
+    output_df = tensor_df.rolling(window).median()
+    output_tensor = torch.tensor(output_df.values, dtype=tensor.dtype, device=tensor.device)
+    return output_tensor
+
 def rolling_rank(np_data):
     return rankdata(np_data,method='min')[-1]
 
@@ -220,3 +250,42 @@ def ts_argmin(tensor,window=10):
     output_np = np.array(output_df)
     output_tensor = torch.tensor(output_np).squeeze()
     return output_tensor
+
+
+# ================================================================== #
+# functions in financial domain                                      #
+# ================================================================== #
+def rolling_cumulation(data_ts: torch.tensor, window:int) -> torch.tensor:
+    """the input is a variation(ratio) of something, like returns"""
+    tensor_np = data_ts.cpu().detach().numpy()
+    tensor_df = pd.DataFrame(tensor_np)
+    output_df = (1+tensor_df).rolling(window).apply(np.prod, raw=False) - 1
+    output_np = np.array(output_df)
+    output_ts = torch.tensor(output_np).squeeze()
+    return output_ts
+
+def _max_drawdown(tensor_np: np.ndarray) -> float:
+    ''' input is price '''
+    expanding_max = np.maximum.accumulate(tensor_np)
+    dd = (tensor_np - expanding_max) / expanding_max
+    max_dd = dd.min()
+    return max_dd
+
+def rolling_max_drawdown(data_ts: torch.tensor, window: int) -> torch.tensor:
+    ''' input is price '''
+    tensor_np = data_ts.cpu().detach().numpy()
+    tensor_df = pd.DataFrame(tensor_np)
+    output_df = tensor_df.rolling(window).apply(_max_drawdown, raw=False)
+    output_np = np.array(output_df)
+    output_ts = torch.tensor(output_np).squeeze()
+    return output_ts
+
+def rolling_max_drawdown_from_returns(data_ts: torch.tensor, window: int) -> torch.tensor:
+    ''' input is returns '''
+    returns_np = data_ts.cpu().detach().numpy() 
+    returns_df = pd.DataFrame(returns_np) 
+    price = (1 + returns_df).cumprod() 
+    output_df = price.rolling(window).apply(_max_drawdown, raw=False)
+    output_np = np.array(output_df) 
+    output_ts = torch.tensor(output_np).squeeze() 
+    return output_ts

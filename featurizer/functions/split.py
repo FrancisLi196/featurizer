@@ -20,15 +20,20 @@ import numpy as np
 from functools import reduce
 import pdb
 
+'''
+Please see 'unittest_split.py' and 'create_expected_output_split.py' for comprehensive examples for functions in this module.
+'''
+
 def split(tensor, window=5, step=1, offset=0, keep_tail=True):
     """
-    :param tensor: numpy data
+    :param tensor: 2d numpy or 2d tensor
     :param window: int, size of window default=5
     :param step: int, size between two windows default=1
     :param offset: int, first window offset default=0
     :param keep_tail: Boolean , {True : save tail of data,; False : possible not save tail of data} default True
     :return: list within numpy data
     Examples::
+        (note: the example data is not in the correct input format; it's intended for understanding only)
         >>> data = np.array([1,2,3,4,5,6,7,8,9,10])
         >>> # keep_tail is True
         >>> split_list = split(data, window=4, step=5, offset=0, keep_tail=True)
@@ -62,13 +67,14 @@ def split(tensor, window=5, step=1, offset=0, keep_tail=True):
 
 def split3d(tensor, window=5, step=1, offset=0, keep_tail=True, dim=1):
     """
-    :param tensor: numpy data
+    :param tensor: 3d numpy or 3d tensor
     :param window: int, size of window default=5
     :param step: int, size between two windows default=1
     :param offset: int, first window offset default=0
     :param keep_tail: Boolean , {True : save tail of data,; False : possible not save tail of data} default True
     :return: list within numpy data
     Examples::
+        (note: the example data is not in the correct input format; it's intended for understanding only)
         >>> data = np.array([1,2,3,4,5,6,7,8,9,10])
         >>> # keep_tail is True
         >>> split_list = split(data, window=4, step=5, offset=0, keep_tail=True)
@@ -79,9 +85,9 @@ def split3d(tensor, window=5, step=1, offset=0, keep_tail=True, dim=1):
     """
     window, step, offset = int(window), int(step), int(offset)
     sample_list = []
-    lenght = tensor.shape[dim]
-    index = int((lenght - window - offset) / step) + 1 #total steps
-    remain = int(lenght - window - offset - (index - 1) * step)
+    length = tensor.shape[dim]
+    index = int((length - window - offset) / step) + 1 #total steps
+    remain = int(length - window - offset - (index - 1) * step)
     #print('remain : ', remain)
     
     if keep_tail:
@@ -104,18 +110,17 @@ def split3d(tensor, window=5, step=1, offset=0, keep_tail=True, dim=1):
 
 def split_sample(tensor, window=5, step=1, offset=0, keep_tail=True, merge_remain=False):
     """
-    :param tensor: numpy data
+    :param tensor: 2d numpy or 2d tensor
     :param window: int, size of window default=5
     :param step: int, size between two windows default=1
     :param offset: int, first window offset default=0
     :param keep_tail: Boolean , {True : save tail of data,; False : possible not save tail of data} default True
-    :param merge_remain: Boolean , {True: and if keep_tail is True, the first sample include remain sample, 
-                                           elif keep_tail is Flase, the last sample include remain sample.
-                                 Flase: the sample decide by value of keep_tail
-                                }
+    :param merge_remain: Boolean , {True: merge the ending group with its previous group, if the ending group size is less than 'window'
+                                    False: do not merge, but discard the ending group, if the ending group size is less than 'window'}
+                        (keep_tail determines whether the smaller sized group, if any, is at the front or the end)
     :return: list within numpy data
     Examples::
-        
+        (note: the example data is not in the correct input format; it's intended for understanding only)
         >>> # use to split data set
         >>> import numpy as np
         >>> data = np.array(range(1, 11))
@@ -142,6 +147,15 @@ def split_sample(tensor, window=5, step=1, offset=0, keep_tail=True, merge_remai
         
         >>> # keep_tail=False, merge_remain=False
         >>> sample2 = split_sample(data, window=3, step=2, offset=0, keep_tail=False, merge_remain=False)
+        >>> sample2
+        [array([[ 0,  1,  2,  3,  4],
+                [ 5,  6,  7,  8,  9],
+                [10, 11, 12, 13, 14]]),
+         array([[10, 11, 12, 13, 14],
+                [15, 16, 17, 18, 19],
+                [20, 21, 22, 23, 24]])]
+        >>> # keep_tail=True, merge_remain=False
+        >>> sample2 = split_sample(data, window=3, step=2, offset=0, keep_tail=False, merge_remain=True)
         >>> sample2
         [array([[ 0,  1,  2,  3,  4],
                 [ 5,  6,  7,  8,  9],
@@ -166,7 +180,7 @@ def split_sample(tensor, window=5, step=1, offset=0, keep_tail=True, merge_remai
             if isinstance(tensor, torch.Tensor):
                 cat_func = torch.cat
             else:
-                cat_func = np.concateneate
+                cat_func = np.concatenate
             
             sample_list[idx-1] = cat_func([sample_list[idx-1], sample_list[idx]])
             del sample_list[idx]
@@ -177,7 +191,7 @@ def split_sample(tensor, window=5, step=1, offset=0, keep_tail=True, merge_remai
 
 def split_sample3d(tensor, window=5, step=1, offset=0, keep_tail=True, merge_remain=False, dim=1):
     """
-    :param tensor: numpy data
+    :param tensor: 3d numpy or 3d tensor
     :param window: int, size of window default=5
     :param step: int, size between two windows default=1
     :param offset: int, first window offset default=0
@@ -188,7 +202,7 @@ def split_sample3d(tensor, window=5, step=1, offset=0, keep_tail=True, merge_rem
                                 }
     :return: list within numpy data
     Examples::
-        
+        (note: the example data is not in the correct input format; it's intended for understanding only)
         >>> # use to split data set
         >>> import numpy as np
         >>> data = np.array(range(1, 11))
@@ -223,9 +237,9 @@ def split_sample3d(tensor, window=5, step=1, offset=0, keep_tail=True, merge_rem
                 [15, 16, 17, 18, 19],
                 [20, 21, 22, 23, 24]])]
     """
-    lenght = tensor.shape[dim]
-    index = int((lenght - window - offset) / step) + 1
-    remain = lenght - window - offset - (index - 1) * step
+    length = tensor.shape[dim]
+    index = int((length - window - offset) / step) + 1
+    remain = length - window - offset - (index - 1) * step
     sample_list = split3d(tensor, window=window, step=step, offset=offset, keep_tail=keep_tail)
     if remain:
         if keep_tail:
