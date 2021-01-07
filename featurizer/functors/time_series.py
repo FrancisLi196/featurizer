@@ -14,6 +14,7 @@
 #     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
+import torch
 from featurizer.interface import Functor
 from featurizer.functions import time_series_functions as tsf
 
@@ -52,6 +53,23 @@ class RollingWeightedStd(Functor):
     
     def forward(self, tensor):
         return tsf.rolling_weighted_std(tensor, window=self._window, halflife=self._halflife)
+    
+class RollingDownsideStd(Functor):
+    
+    def __init__(self, window):
+        self._window = window
+    
+    def forward(self, tensor, tensor_benchmark):
+        return tsf.rolling_downside_std(tensor, tensor_benchmark=tensor_benchmark, window=self._window)
+
+class RollingUpsideStd(Functor):
+    
+    def __init__(self, window):
+        self._window = window
+    
+    def forward(self, tensor, tensor_benchmark):
+        return tsf.rolling_upside_std(tensor, tensor_benchmark=tensor_benchmark, window=self._window)
+
 
 class RollingMeanScaledByStd(Functor):
     
@@ -70,6 +88,14 @@ class RollingSkew(Functor):
     def forward(self, tensor):
         return tsf.rolling_skew(tensor, window=self._window)   
 
+class RollingKurt(Functor):
+    
+    def __init__(self, window):
+        self._window = window
+    
+    def forward(self, tensor):
+        return tsf.rolling_kurt(tensor, window = self._window)
+
 class PctChange(Functor):
 
     def __init__(self, window=1):
@@ -79,6 +105,14 @@ class PctChange(Functor):
     def forward(self, tensor):
         return tsf.pct_change(tensor, period=self._window)
 
+class RollingCumulation(Functor):
+
+    def __init__(self, window=5):
+        self._window = window
+
+    def forward(self, tensor):
+        return tsf.rolling_cumulation(data_ts=tensor, window=self._window)
+
 class RollingMax(Functor):
     
     def __init__(self, window):
@@ -86,6 +120,32 @@ class RollingMax(Functor):
     
     def forward(self, tensor):
         return tsf.rolling_max(tensor, window=self._window)
+
+class RollingMin(Functor):
+    
+    def __init__(self, window):
+        self._window = window
+    
+    def forward(self, tensor: torch.tensor) -> torch.tensor:
+        return tsf.rolling_min(data_ts = tensor, window = self._window)
+    
+class RollingMaxDrawdown(Functor):
+    
+    def __init__(self, window):
+        self._window = window
+    
+    def forward(self, tensor: torch.tensor) -> torch.tensor:
+        return tsf.rolling_max_drawdown(data_ts = tensor, window = self._window)
+
+class RollingMaxDrawdownFromReturns(Functor):
+    
+    def __init__(self, window):
+        self._window = window
+    
+    def forward(self, tensor: torch.tensor) -> torch.tensor:
+        return tsf.rolling_max_drawdown_from_returns(data_ts = tensor, window = self._window)
+
+
 
 if __name__ == "__main__":
     import torch

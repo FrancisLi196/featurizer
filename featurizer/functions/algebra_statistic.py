@@ -47,13 +47,21 @@ def weighted_std_from_stats(matrix, axis=0, halflife=90):
     weighted_stats = DescrStatsW(matrix, weights=w, ddof=0)
     return weighted_stats.std
 
-def downside_std(value_arr, value_arr_benchmark):
-    indicator = value_arr < value_arr_benchmark
-    diff = value_arr - value_arr_benchmark
-    diff_squared = diff * diff
+def downside_std(diff_arr):
+    indicator = diff_arr<0
+    diff_squared = np.power(diff_arr, 2)
     diff_squared_under_indicator = diff_squared * indicator
-    mean_squared_sum = sum(diff_squared_under_indicator)/ (len(value_arr)-1) 
+    mean_squared_sum = sum(diff_squared_under_indicator)/ (len(diff_arr)-1) 
     return np.power(mean_squared_sum, 0.5)
+
+def upside_std(diff_arr):
+    indicator = diff_arr>0
+    diff_squared = np.power(diff_arr, 2)
+    diff_squared_under_indicator = diff_squared * indicator
+    mean_squared_sum = sum(diff_squared_under_indicator)/ (len(diff_arr)-1) 
+    return np.power(mean_squared_sum, 0.5)
+
+
 
 if __name__ == "__main__":
     import pandas as pd
