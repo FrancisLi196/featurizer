@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from functools import reduce
+from statsmodels.stats.weightstats import DescrStatsW
 
 
 class cov_adjustor():
@@ -10,31 +12,29 @@ class cov_adjustor():
         weighted_cov = np.average((x_df - x_weightedmean) * (y_df - y_weightedmean), weights=weights, axis=0)
         return weighted_cov
 
-    def Newey_West_cov(self, factors_df, decay_coef, lag_length, prediction_period=21):
+    def Newey_West(factors_df, lag_period=1, decay_coef=1):
+        T = factors_df.shape[0]  # window_length
+        names = factors_df.columns
         window_length = len(factors_df)
         w = []
         weight = 0.5 ** (1 / decay_coef)
         for i in range(window_length):
             w.append(weight ** (window_length - i - 1))
-        cov_raw = np.cov(factors_df, rowvar=False, aweights=w)
-        cov_NW = cov_raw.copy()
-        for i in range(cov_raw.shape[0]):
-            for j in range(cov_raw.shape[1]):
-                temp_result = 0  # cplus + cminus
-                for delta in range(1, lag_length + 1):
-                    temp_length = window_length - delta
-                    temp_weights = []
-                    for k in range(temp_length):
-                        temp_weights.append(weight ** (temp_length - k - 1))
-                    temp_x_minus = factors_df[delta:][i].reset_index(drop=True)
-                    temp_y_minus = factors_df[0:window_length - delta][j].reset_index(drop=True)
-                    c_minus = self.get_weighted_cov_value(temp_x_minus, temp_y_minus, weights=temp_weights)
-                    temp_x_plus = factors_df[0:window_length - delta][i].reset_index(drop=True)
-                    temp_y_plus = factors_df[delta:][j].reset_index(drop=True)
-                    c_plus = self.get_weighted_cov_value(temp_x_plus, temp_y_plus, weights=temp_weights)
-                    temp_result = temp_result + (1 - (delta / (lag_length + 1))) * (c_plus + c_minus)
-                cov_NW[i][j] = prediction_period * (cov_raw[i][j] + temp_result)
-        return cov_NW
+        w = [x / sum(w) for x in w]
+        w_stats = DescrStatsW(factors_df, w)
+        factors_demeaned = factors_df - w_stats.mean
+        factors_demeaned = np.matrix(factors_demeaned.values)
+        weighted_cov_raw = [w[t] * factors_demeaned[t].T @ factors_demeaned[t] for t in range(T)]
+        weighted_cov_raw = reduce(np.add, weighted_cov_raw)
+        cov_NW = weighted_cov_raw  # Newey West adjusted cov
+        for i in range(1, lag_period + 1):
+            w_new = [w[i + t] for t in range(T - i)]
+            w_new = [x / sum(w_new) for x in w_new]
+            Gammai = [w_new[i] * factors_demeaned[t].T @ factors_demeaned[i + t] for t in range(T - i)]
+            Gammai = reduce(np.add, Gammai)
+            cov_NW = cov_NW + (1 - i / (1 + lag_period)) * (Gammai + Gammai.T)
+        result = (pd.DataFrame(cov_NW, columns=names, index=names))
+        return result
 
     def eigenfactor_risk_adjustment(self, Newey_West_adjustment_cov, adjust_coef):
         eigen_value, eigen_vector = np.linalg.eig(Newey_West_adjustment_cov.astype(np.float))
