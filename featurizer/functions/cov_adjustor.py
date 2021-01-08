@@ -12,15 +12,18 @@ class cov_adjustor():
         weighted_cov = np.average((x_df - x_weightedmean) * (y_df - y_weightedmean), weights=weights, axis=0)
         return weighted_cov
 
-    def Newey_West(factors_df, lag_period=1, decay_coef=1):
-        T = factors_df.shape[0]  # window_length
-        names = factors_df.columns
-        window_length = len(factors_df)
+    def get_exponential_weight(self,window_length,decay_coef):
         w = []
         weight = 0.5 ** (1 / decay_coef)
         for i in range(window_length):
             w.append(weight ** (window_length - i - 1))
         w = [x / sum(w) for x in w]
+        return w
+    def Newey_West(self,factors_df, lag_period=1, decay_coef=1):
+        T = factors_df.shape[0]  # window_length
+        names = factors_df.columns
+        window_length = len(factors_df)
+        w = self.get_exponential_weight(window_length,decay_coef)
         w_stats = DescrStatsW(factors_df, w)
         factors_demeaned = factors_df - w_stats.mean
         factors_demeaned = np.matrix(factors_demeaned.values)
@@ -61,10 +64,7 @@ class cov_adjustor():
 
     def volatility_regime_adjustment(self, eigenfactor_risk_adjustment_cov, factors_df, decay_coef ):
         window_length = len(factors_df)
-        w = []
-        weight = 0.5 ** (1 / decay_coef)
-        for i in range(window_length):
-            w.append(weight ** (window_length - i - 1))
+        w = self.get_exponential_weight(window_length, decay_coef)
         empirical_factor_volitality = pd.Series(data=np.sqrt(np.diag(factors_df.cov())),
                                                 index=factors_df.columns)
         bias = pd.Series(index=factors_df.index)
@@ -72,7 +72,7 @@ class cov_adjustor():
             bias.loc[date] = np.square(factors_df.loc[date] / empirical_factor_volitality).sum() / len(
                 factors_df.columns)
         w = np.array(w)
-        lambda_f = np.sqrt(w.dot(bias) / w.sum())
+        lambda_f = np.sqrt(w.dot(bias))
         volatility_regime_adjustment_cov = lambda_f ** (2) * eigenfactor_risk_adjustment_cov
         return volatility_regime_adjustment_cov
 
