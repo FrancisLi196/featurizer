@@ -19,6 +19,7 @@ class cov_adjustor():
             w.append(weight ** (window_length - i - 1))
         w = [x / sum(w) for x in w]
         return w
+
     def Newey_West(self,factors_df, lag_period=1, decay_coef=1):
         T = factors_df.shape[0]  # window_length
         names = factors_df.columns
