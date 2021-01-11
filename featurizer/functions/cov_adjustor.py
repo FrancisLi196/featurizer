@@ -1,6 +1,7 @@
+from functools import reduce
+
 import numpy as np
 import pandas as pd
-from functools import reduce
 from statsmodels.stats.weightstats import DescrStatsW
 
 
@@ -12,7 +13,7 @@ class cov_adjustor():
         weighted_cov = np.average((x_df - x_weightedmean) * (y_df - y_weightedmean), weights=weights, axis=0)
         return weighted_cov
 
-    def get_exponential_weight(self,window_length,decay_coef):
+    def get_exponential_weight(self, window_length, decay_coef):
         w = []
         weight = 0.5 ** (1 / decay_coef)
         for i in range(window_length):
@@ -20,11 +21,11 @@ class cov_adjustor():
         w = [x / sum(w) for x in w]
         return w
 
-    def Newey_West(self,factors_df, lag_period=1, decay_coef=1):
+    def Newey_West(self, factors_df, lag_period=1, decay_coef=1,forward_period=1):
         T = factors_df.shape[0]  # window_length
         names = factors_df.columns
         window_length = len(factors_df)
-        w = self.get_exponential_weight(window_length,decay_coef)
+        w = self.get_exponential_weight(window_length, decay_coef)
         w_stats = DescrStatsW(factors_df, w)
         factors_demeaned = factors_df - w_stats.mean
         factors_demeaned = np.matrix(factors_demeaned.values)
@@ -36,7 +37,7 @@ class cov_adjustor():
             w_new = [x / sum(w_new) for x in w_new]
             Gammai = [w_new[i] * factors_demeaned[t].T @ factors_demeaned[i + t] for t in range(T - i)]
             Gammai = reduce(np.add, Gammai)
-            cov_NW = cov_NW + (1 - i / (1 + lag_period)) * (Gammai + Gammai.T)
+            cov_NW = cov_NW + forward_period * (1 - i / (1 + lag_period)) * (Gammai + Gammai.T)
         result = (pd.DataFrame(cov_NW, columns=names, index=names))
         return result
 
@@ -63,7 +64,7 @@ class cov_adjustor():
             unbiased_eigen_value_matrix.dot(eigen_value_matrix).dot(eigen_vector.T))
         return eigenfactor_risk_adjustment_cov
 
-    def volatility_regime_adjustment(self, eigenfactor_risk_adjustment_cov, factors_df, decay_coef ):
+    def volatility_regime_adjustment(self, eigenfactor_risk_adjustment_cov, factors_df, decay_coef):
         window_length = len(factors_df)
         w = self.get_exponential_weight(window_length, decay_coef)
         empirical_factor_volitality = pd.Series(data=np.sqrt(np.diag(factors_df.cov())),
@@ -76,4 +77,3 @@ class cov_adjustor():
         lambda_f = np.sqrt(w.dot(bias))
         volatility_regime_adjustment_cov = lambda_f ** (2) * eigenfactor_risk_adjustment_cov
         return volatility_regime_adjustment_cov
-
